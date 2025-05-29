@@ -1,0 +1,698 @@
+import React, { useState, useEffect } from 'react';
+import { Plus, Edit, Trash2, Upload, Download, Eye, Package } from 'lucide-react';
+import Layout from '../components/common/Layout';
+import DataTable from '../components/tables/DataTable';
+import Modal from '../components/common/Modal';
+import StatusBadge from '../components/common/StatusBadge';
+import LoadingSpinner from '../components/common/LoadingSpinner';
+import { Product, ProductFormData } from '../types/product';
+import { Category, Brand } from '../types/category';
+import { formatCurrency, formatDate } from '../utils/formatters';
+import { productService } from '../services/productService';
+
+const Products: React.FC = () => {
+  const [products, setProducts] = useState<Product[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [brands, setBrands] = useState<Brand[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isFormLoading, setIsFormLoading] = useState(false);
+  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [selectedProducts, setSelectedProducts] = useState<string[]>([]);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filters, setFilters] = useState({
+    category: '',
+    status: '',
+    stock: '',
+  });
+
+  // Mock data for demonstration
+  const mockProducts: Product[] = [
+    {
+      id: '1',
+      name: 'Premium Cement Bags',
+      slug: 'premium-cement-bags',
+      description: 'High-quality cement bags suitable for all construction projects',
+      shortDescription: 'Premium quality cement for construction',
+      sku: 'CEM-001',
+      categoryId: '1',
+      brandId: '1',
+      basePrice: 12.50,
+      unitOfMeasurement: 'bags',
+      weightKg: 50,
+      stockQuantity: 150,
+      minOrderQuantity: 10,
+      isActive: true,
+      featured: true,
+      averageRating: 4.5,
+      totalReviews: 25,
+      specifications: {},
+      technicalData: {},
+      createdAt: '2024-01-15T10:00:00Z',
+      updatedAt: '2024-01-15T10:00:00Z',
+      images: [],
+      variants: [],
+      category: { id: '1', name: 'Cement', slug: 'cement', displayOrder: 1, isActive: true, createdAt: '', updatedAt: '' },
+      brand: { id: '1', name: 'BuildCorp', slug: 'buildcorp', isActive: true, createdAt: '', updatedAt: '' }
+    },
+    {
+      id: '2',
+      name: 'Steel Reinforcement Bars',
+      slug: 'steel-reinforcement-bars',
+      description: 'High-strength steel bars for concrete reinforcement',
+      shortDescription: 'Steel bars for reinforcement',
+      sku: 'STL-002',
+      categoryId: '2',
+      brandId: '2',
+      basePrice: 45.00,
+      unitOfMeasurement: 'pieces',
+      weightKg: 25,
+      stockQuantity: 75,
+      minOrderQuantity: 5,
+      isActive: true,
+      featured: false,
+      averageRating: 4.8,
+      totalReviews: 18,
+      specifications: {},
+      technicalData: {},
+      createdAt: '2024-01-10T09:00:00Z',
+      updatedAt: '2024-01-10T09:00:00Z',
+      images: [],
+      variants: [],
+      category: { id: '2', name: 'Steel', slug: 'steel', displayOrder: 2, isActive: true, createdAt: '', updatedAt: '' },
+      brand: { id: '2', name: 'SteelMaster', slug: 'steelmaster', isActive: true, createdAt: '', updatedAt: '' }
+    }
+  ];
+
+  const mockCategories: Category[] = [
+    { id: '1', name: 'Cement', slug: 'cement', displayOrder: 1, isActive: true, createdAt: '', updatedAt: '' },
+    { id: '2', name: 'Steel', slug: 'steel', displayOrder: 2, isActive: true, createdAt: '', updatedAt: '' },
+    { id: '3', name: 'Tools', slug: 'tools', displayOrder: 3, isActive: true, createdAt: '', updatedAt: '' },
+  ];
+
+  const mockBrands: Brand[] = [
+    { id: '1', name: 'BuildCorp', slug: 'buildcorp', isActive: true, createdAt: '', updatedAt: '' },
+    { id: '2', name: 'SteelMaster', slug: 'steelmaster', isActive: true, createdAt: '', updatedAt: '' },
+    { id: '3', name: 'ToolPro', slug: 'toolpro', isActive: true, createdAt: '', updatedAt: '' },
+  ];
+
+  useEffect(() => {
+    fetchData();
+  }, []);
+
+  const fetchData = async () => {
+    try {
+      setLoading(true);
+      // Replace with actual API calls
+      setProducts(mockProducts);
+      setCategories(mockCategories);
+      setBrands(mockBrands);
+    } catch (error) {
+      console.error('Failed to fetch data:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleAddProduct = () => {
+    setEditingProduct(null);
+    setIsModalOpen(true);
+  };
+
+  const handleEditProduct = (product: Product) => {
+    setEditingProduct(product);
+    setIsModalOpen(true);
+  };
+
+  const handleDeleteProduct = async (productId: string) => {
+    if (window.confirm('Are you sure you want to delete this product?')) {
+      try {
+        // await productService.deleteProduct(productId);
+        setProducts(products.filter(p => p.id !== productId));
+      } catch (error) {
+        console.error('Failed to delete product:', error);
+      }
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedProducts.length === 0) return;
+    
+    if (window.confirm(`Are you sure you want to delete ${selectedProducts.length} products?`)) {
+      try {
+        // await productService.bulkDeleteProducts(selectedProducts);
+        setProducts(products.filter(p => !selectedProducts.includes(p.id)));
+        setSelectedProducts([]);
+      } catch (error) {
+        console.error('Failed to bulk delete products:', error);
+      }
+    }
+  };
+
+  const handleFormSubmit = async (formData: ProductFormData) => {
+    try {
+      setIsFormLoading(true);
+      
+      if (editingProduct) {
+        // await productService.updateProduct(editingProduct.id, formData);
+        console.log('Updating product:', formData);
+      } else {
+        // await productService.createProduct(formData);
+        console.log('Creating product:', formData);
+      }
+      
+      setIsModalOpen(false);
+      fetchData();
+    } catch (error) {
+      console.error('Failed to save product:', error);
+    } finally {
+      setIsFormLoading(false);
+    }
+  };
+
+  const filteredProducts = products.filter(product => {
+    const matchesSearch = product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                         product.sku.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesCategory = !filters.category || product.categoryId === filters.category;
+    const matchesStatus = !filters.status || 
+                         (filters.status === 'active' && product.isActive) ||
+                         (filters.status === 'inactive' && !product.isActive);
+    const matchesStock = !filters.stock ||
+                        (filters.stock === 'low' && product.stockQuantity < product.minOrderQuantity) ||
+                        (filters.stock === 'normal' && product.stockQuantity >= product.minOrderQuantity);
+    
+    return matchesSearch && matchesCategory && matchesStatus && matchesStock;
+  });
+
+  const columns = [
+    {
+      key: 'image',
+      label: 'Image',
+      width: '80px',
+      render: (value: any, product: Product) => (
+        <div className="w-12 h-12 bg-gray-200 rounded-lg flex items-center justify-center">
+          <Package className="h-6 w-6 text-gray-400" />
+        </div>
+      )
+    },
+    {
+      key: 'name',
+      label: 'Product',
+      render: (value: any, product: Product) => (
+        <div>
+          <p className="font-medium text-gray-900">{product.name}</p>
+          <p className="text-sm text-gray-500">SKU: {product.sku}</p>
+        </div>
+      )
+    },
+    {
+      key: 'category',
+      label: 'Category',
+      render: (value: any, product: Product) => product.category?.name || 'N/A'
+    },
+    {
+      key: 'brand',
+      label: 'Brand',
+      render: (value: any, product: Product) => product.brand?.name || 'N/A'
+    },
+    {
+      key: 'basePrice',
+      label: 'Price',
+      render: (value: any, product: Product) => formatCurrency(product.basePrice)
+    },
+    {
+      key: 'stockQuantity',
+      label: 'Stock',
+      render: (value: any, product: Product) => (
+        <div>
+          <span className={`font-medium ${product.stockQuantity < product.minOrderQuantity ? 'text-red-600' : 'text-gray-900'}`}>
+            {product.stockQuantity}
+          </span>
+          <span className="text-sm text-gray-500 ml-1">{product.unitOfMeasurement}</span>
+        </div>
+      )
+    },
+    {
+      key: 'isActive',
+      label: 'Status',
+      render: (value: any, product: Product) => (
+        <StatusBadge status={product.isActive ? 'active' : 'inactive'} />
+      )
+    },
+    {
+      key: 'createdAt',
+      label: 'Created',
+      render: (value: any, product: Product) => formatDate(product.createdAt)
+    },
+    {
+      key: 'actions',
+      label: 'Actions',
+      width: '120px',
+      render: (value: any, product: Product) => (
+        <div className="flex items-center space-x-2">
+          <button
+            onClick={() => handleEditProduct(product)}
+            className="p-1 text-gray-600 hover:text-primary-600 transition-colors"
+            title="Edit"
+          >
+            <Edit className="h-4 w-4" />
+          </button>
+          <button
+            onClick={() => handleDeleteProduct(product.id)}
+            className="p-1 text-gray-600 hover:text-red-600 transition-colors"
+            title="Delete"
+          >
+            <Trash2 className="h-4 w-4" />
+          </button>
+        </div>
+      )
+    }
+  ];
+
+  return (
+    <Layout title="Products">
+      <div className="space-y-6">
+        {/* Header Actions */}
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-xl font-semibold text-gray-900">Products Management</h2>
+            <p className="text-gray-600">Manage your product catalog</p>
+          </div>
+          <div className="flex items-center space-x-3">
+            <button
+              onClick={handleBulkDelete}
+              disabled={selectedProducts.length === 0}
+              className="px-4 py-2 text-sm font-medium text-red-600 bg-red-50 border border-red-200 rounded-lg hover:bg-red-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              <Trash2 className="h-4 w-4 mr-2 inline" />
+              Delete Selected ({selectedProducts.length})
+            </button>
+            <button className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
+              <Download className="h-4 w-4 mr-2 inline" />
+              Export
+            </button>
+            <button className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
+              <Upload className="h-4 w-4 mr-2 inline" />
+              Import
+            </button>
+            <button
+              onClick={handleAddProduct}
+              className="px-4 py-2 text-sm font-medium text-white bg-primary-600 rounded-lg hover:bg-primary-700 transition-colors"
+            >
+              <Plus className="h-4 w-4 mr-2 inline" />
+              Add Product
+            </button>
+          </div>
+        </div>
+
+        {/* Filters */}
+        <div className="bg-white rounded-lg shadow-sm border p-6">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Category</label>
+              <select
+                value={filters.category}
+                onChange={(e) => setFilters({...filters, category: e.target.value})}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+              >
+                <option value="">All Categories</option>
+                {categories.map(category => (
+                  <option key={category.id} value={category.id}>{category.name}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Status</label>
+              <select
+                value={filters.status}
+                onChange={(e) => setFilters({...filters, status: e.target.value})}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+              >
+                <option value="">All Status</option>
+                <option value="active">Active</option>
+                <option value="inactive">Inactive</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Stock Level</label>
+              <select
+                value={filters.stock}
+                onChange={(e) => setFilters({...filters, stock: e.target.value})}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+              >
+                <option value="">All Stock Levels</option>
+                <option value="low">Low Stock</option>
+                <option value="normal">Normal Stock</option>
+              </select>
+            </div>
+            <div className="flex items-end">
+              <button
+                onClick={() => setFilters({ category: '', status: '', stock: '' })}
+                className="w-full px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+              >
+                Clear Filters
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Products Table */}
+        <DataTable
+          data={filteredProducts}
+          columns={columns}
+          loading={loading}
+          onSearch={setSearchQuery}
+          searchPlaceholder="Search products..."
+          emptyMessage="No products found"
+        />
+
+        {/* Product Form Modal */}
+        <ProductFormModal
+          isOpen={isModalOpen}
+          onClose={() => setIsModalOpen(false)}
+          onSubmit={handleFormSubmit}
+          product={editingProduct}
+          categories={categories}
+          brands={brands}
+          loading={isFormLoading}
+        />
+      </div>
+    </Layout>
+  );
+};
+
+// Product Form Modal Component
+interface ProductFormModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onSubmit: (data: ProductFormData) => void;
+  product?: Product | null;
+  categories: Category[];
+  brands: Brand[];
+  loading: boolean;
+}
+
+const ProductFormModal: React.FC<ProductFormModalProps> = ({
+  isOpen,
+  onClose,
+  onSubmit,
+  product,
+  categories,
+  brands,
+  loading
+}) => {
+  const [formData, setFormData] = useState<ProductFormData>({
+    name: '',
+    slug: '',
+    description: '',
+    shortDescription: '',
+    sku: '',
+    categoryId: '',
+    brandId: '',
+    basePrice: 0,
+    unitOfMeasurement: 'pieces',
+    stockQuantity: 0,
+    minOrderQuantity: 1,
+    isActive: true,
+    featured: false,
+    specifications: {},
+    technicalData: {},
+  });
+
+  useEffect(() => {
+    if (product) {
+      setFormData({
+        name: product.name,
+        slug: product.slug,
+        description: product.description,
+        shortDescription: product.shortDescription,
+        sku: product.sku,
+        categoryId: product.categoryId,
+        brandId: product.brandId,
+        basePrice: product.basePrice,
+        unitOfMeasurement: product.unitOfMeasurement,
+        weightKg: product.weightKg,
+        dimensionsCm: product.dimensionsCm,
+        stockQuantity: product.stockQuantity,
+        minOrderQuantity: product.minOrderQuantity,
+        maxOrderQuantity: product.maxOrderQuantity,
+        isActive: product.isActive,
+        featured: product.featured,
+        specifications: product.specifications,
+        technicalData: product.technicalData,
+      });
+    } else {
+      setFormData({
+        name: '',
+        slug: '',
+        description: '',
+        shortDescription: '',
+        sku: '',
+        categoryId: '',
+        brandId: '',
+        basePrice: 0,
+        unitOfMeasurement: 'pieces',
+        stockQuantity: 0,
+        minOrderQuantity: 1,
+        isActive: true,
+        featured: false,
+        specifications: {},
+        technicalData: {},
+      });
+    }
+  }, [product]);
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    onSubmit(formData);
+  };
+
+  const generateSlug = (name: string) => {
+    return name.toLowerCase().replace(/[^a-z0-9 -]/g, '').replace(/\s+/g, '-').replace(/-+/g, '-').trim();
+  };
+
+  const handleNameChange = (name: string) => {
+    setFormData({
+      ...formData,
+      name,
+      slug: generateSlug(name)
+    });
+  };
+
+  return (
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      title={product ? 'Edit Product' : 'Add New Product'}
+      size="lg"
+    >
+      <form onSubmit={handleSubmit} className="space-y-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* Basic Information */}
+          <div className="md:col-span-2">
+            <h3 className="text-lg font-medium text-gray-900 mb-4">Basic Information</h3>
+          </div>
+          
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Product Name *</label>
+            <input
+              type="text"
+              required
+              value={formData.name}
+              onChange={(e) => handleNameChange(e.target.value)}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Slug</label>
+            <input
+              type="text"
+              value={formData.slug}
+              onChange={(e) => setFormData({...formData, slug: e.target.value})}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">SKU *</label>
+            <input
+              type="text"
+              required
+              value={formData.sku}
+              onChange={(e) => setFormData({...formData, sku: e.target.value.toUpperCase()})}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Category *</label>
+            <select
+              required
+              value={formData.categoryId}
+              onChange={(e) => setFormData({...formData, categoryId: e.target.value})}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+            >
+              <option value="">Select Category</option>
+              {categories.map(category => (
+                <option key={category.id} value={category.id}>{category.name}</option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Brand *</label>
+            <select
+              required
+              value={formData.brandId}
+              onChange={(e) => setFormData({...formData, brandId: e.target.value})}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+            >
+              <option value="">Select Brand</option>
+              {brands.map(brand => (
+                <option key={brand.id} value={brand.id}>{brand.name}</option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Base Price *</label>
+            <input
+              type="number"
+              required
+              min="0"
+              step="0.01"
+              value={formData.basePrice}
+              onChange={(e) => setFormData({...formData, basePrice: parseFloat(e.target.value) || 0})}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+            />
+          </div>
+
+          <div className="md:col-span-2">
+            <label className="block text-sm font-medium text-gray-700 mb-2">Short Description</label>
+            <textarea
+              rows={2}
+              value={formData.shortDescription}
+              onChange={(e) => setFormData({...formData, shortDescription: e.target.value})}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+            />
+          </div>
+
+          <div className="md:col-span-2">
+            <label className="block text-sm font-medium text-gray-700 mb-2">Description *</label>
+            <textarea
+              rows={4}
+              required
+              value={formData.description}
+              onChange={(e) => setFormData({...formData, description: e.target.value})}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+            />
+          </div>
+
+          {/* Inventory */}
+          <div className="md:col-span-2">
+            <h3 className="text-lg font-medium text-gray-900 mb-4">Inventory & Shipping</h3>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Unit of Measurement *</label>
+            <select
+              required
+              value={formData.unitOfMeasurement}
+              onChange={(e) => setFormData({...formData, unitOfMeasurement: e.target.value})}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+            >
+              <option value="pieces">Pieces</option>
+              <option value="meters">Meters</option>
+              <option value="kilograms">Kilograms</option>
+              <option value="liters">Liters</option>
+              <option value="bags">Bags</option>
+              <option value="boxes">Boxes</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Stock Quantity *</label>
+            <input
+              type="number"
+              required
+              min="0"
+              value={formData.stockQuantity}
+              onChange={(e) => setFormData({...formData, stockQuantity: parseInt(e.target.value) || 0})}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Min Order Quantity *</label>
+            <input
+              type="number"
+              required
+              min="1"
+              value={formData.minOrderQuantity}
+              onChange={(e) => setFormData({...formData, minOrderQuantity: parseInt(e.target.value) || 1})}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Weight (kg)</label>
+            <input
+              type="number"
+              min="0"
+              step="0.1"
+              value={formData.weightKg || ''}
+              onChange={(e) => setFormData({...formData, weightKg: parseFloat(e.target.value) || undefined})}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+            />
+          </div>
+
+          {/* Status */}
+          <div className="md:col-span-2">
+            <h3 className="text-lg font-medium text-gray-900 mb-4">Status</h3>
+            <div className="flex items-center space-x-6">
+              <label className="flex items-center">
+                <input
+                  type="checkbox"
+                  checked={formData.isActive}
+                  onChange={(e) => setFormData({...formData, isActive: e.target.checked})}
+                  className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
+                />
+                <span className="ml-2 text-sm text-gray-700">Active</span>
+              </label>
+              <label className="flex items-center">
+                <input
+                  type="checkbox"
+                  checked={formData.featured}
+                  onChange={(e) => setFormData({...formData, featured: e.target.checked})}
+                  className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
+                />
+                <span className="ml-2 text-sm text-gray-700">Featured</span>
+              </label>
+            </div>
+          </div>
+        </div>
+
+        {/* Form Actions */}
+        <div className="flex items-center justify-end space-x-3 pt-6 border-t border-gray-200">
+          <button
+            type="button"
+            onClick={onClose}
+            className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+          >
+            Cancel
+          </button>
+          <button
+            type="submit"
+            disabled={loading}
+            className="px-4 py-2 text-sm font-medium text-white bg-primary-600 rounded-lg hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          >
+            {loading ? <LoadingSpinner size="sm" /> : (product ? 'Update Product' : 'Create Product')}
+          </button>
+        </div>
+      </form>
+    </Modal>
+  );
+};
+
+export default Products; 
