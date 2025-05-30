@@ -1,77 +1,109 @@
 import { apiService } from './api';
-import { Product, ProductFormData } from '../types/product';
+import { Product, ProductFormData, ProductImage } from '../types/product';
 import { Category, Brand } from '../types/category';
 import { ApiResponse, PaginatedResponse, TableFilters } from '../types/api';
 
+const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3000/api';
+
 export const productService = {
-  // Get all products with filtering and pagination
+  // Use admin endpoints
   getProducts: async (filters?: TableFilters & { page?: number; limit?: number }): Promise<PaginatedResponse<Product>> => {
-    return apiService.getPaginated<Product>('/products', filters);
+    // Call the backend API which returns {products: Product[], total: number}
+    const response = await apiService.get<{products: Product[], total: number}>('/admin/products', {
+      page: filters?.page || 1,
+      limit: filters?.limit || 10,
+      ...filters
+    });
+    
+    // Transform the response to match the expected PaginatedResponse format
+    return {
+      data: response.data.products,
+      pagination: {
+        total: response.data.total,
+        page: filters?.page || 1,
+        limit: filters?.limit || 10,
+        totalPages: Math.ceil(response.data.total / (filters?.limit || 10))
+      },
+      success: true,
+      message: response.message
+    };
   },
 
   // Get single product by ID
   getProduct: async (id: string): Promise<ApiResponse<Product>> => {
-    return apiService.get<Product>(`/products/${id}`);
+    return apiService.get<Product>(`/admin/products/${id}`);
   },
 
   // Create new product
   createProduct: async (data: ProductFormData): Promise<ApiResponse<Product>> => {
-    return apiService.post<Product>('/products', data);
+    return apiService.post<Product>('/admin/products', data);
   },
 
   // Update existing product
   updateProduct: async (id: string, data: Partial<ProductFormData>): Promise<ApiResponse<Product>> => {
-    return apiService.patch<Product>(`/products/${id}`, data);
+    return apiService.patch<Product>(`/admin/products/${id}`, data);
   },
 
   // Delete product
   deleteProduct: async (id: string): Promise<ApiResponse<void>> => {
-    return apiService.delete<void>(`/products/${id}`);
+    return apiService.delete<void>(`/admin/products/${id}`);
   },
 
   // Bulk delete products
   bulkDeleteProducts: async (ids: string[]): Promise<ApiResponse<void>> => {
-    return apiService.post<void>('/products/bulk-delete', { ids });
+    return apiService.post<void>('/admin/products/bulk-delete', { ids });
   },
 
   // Bulk update product status
   bulkUpdateStatus: async (ids: string[], isActive: boolean): Promise<ApiResponse<void>> => {
-    return apiService.patch<void>('/products/bulk-status', { ids, isActive });
+    return apiService.patch<void>('/admin/products/bulk-status', { ids, isActive });
   },
 
-  // Upload product images
-  uploadImages: async (productId: string, files: FileList): Promise<ApiResponse<string[]>> => {
+  // Upload product images - Updated to match new backend API
+  uploadImages: async (productId: string, files: FileList): Promise<ApiResponse<ProductImage[]>> => {
     const formData = new FormData();
     Array.from(files).forEach(file => {
       formData.append('images', file);
     });
-    formData.append('productId', productId);
+    // Set first image as primary by default
+    formData.append('isPrimary', 'true');
+    formData.append('altText', 'Product image');
     
-    return apiService.upload<string[]>('/products/images', formData);
+    return apiService.upload<ProductImage[]>(`/admin/products/${productId}/images`, formData);
   },
 
-  // Delete product image
+  // Get product images
+  getImages: async (productId: string): Promise<ApiResponse<ProductImage[]>> => {
+    return apiService.get<ProductImage[]>(`/admin/products/${productId}/images`);
+  },
+
+  // Delete product image - Updated endpoint
   deleteImage: async (imageId: string): Promise<ApiResponse<void>> => {
-    return apiService.delete<void>(`/products/images/${imageId}`);
+    return apiService.delete<void>(`/admin/products/images/${imageId}`);
+  },
+
+  // Set primary image - New method
+  setPrimaryImage: async (imageId: string): Promise<ApiResponse<ProductImage>> => {
+    return apiService.patch<ProductImage>(`/admin/products/images/${imageId}/primary`, {});
   },
 
   // Get product categories
   getCategories: async (): Promise<ApiResponse<Category[]>> => {
-    return apiService.get<Category[]>('/categories');
+    return apiService.get<Category[]>('/products/categories');
   },
 
   // Get product brands
   getBrands: async (): Promise<ApiResponse<Brand[]>> => {
-    return apiService.get<Brand[]>('/brands');
+    return apiService.get<Brand[]>('/products/brands');
   },
 
   // Export products to CSV
   exportProducts: async (filters?: TableFilters): Promise<Blob> => {
-    const response = await fetch(`${process.env.REACT_APP_API_URL}/products/export`, {
+    const response = await fetch(`${API_BASE_URL}/admin/products/export`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        // Add auth header
+        'Authorization': `Bearer ${(apiService as any).token}`,
       },
       body: JSON.stringify(filters || {}),
     });
@@ -88,16 +120,16 @@ export const productService = {
     const formData = new FormData();
     formData.append('file', file);
     
-    return apiService.upload<{ successful: number; failed: number; errors: string[] }>('/products/import', formData);
+    return apiService.upload<{ successful: number; failed: number; errors: string[] }>('/admin/products/import', formData);
   },
 
   // Get low stock products
   getLowStockProducts: async (threshold: number = 10): Promise<ApiResponse<Product[]>> => {
-    return apiService.get<Product[]>('/products/low-stock', { threshold });
+    return apiService.get<Product[]>('/admin/products/low-stock', { threshold });
   },
 
   // Update product stock
   updateStock: async (id: string, quantity: number): Promise<ApiResponse<Product>> => {
-    return apiService.patch<Product>(`/products/${id}/stock`, { quantity });
+    return apiService.patch<Product>(`/admin/products/${id}/stock`, { quantity });
   },
 }; 

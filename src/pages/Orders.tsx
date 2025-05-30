@@ -4,7 +4,6 @@ import {
   Package, CreditCard, Truck, CheckCircle, 
   XCircle, Clock, AlertCircle, Search, Calendar
 } from 'lucide-react';
-import Layout from '../components/common/Layout';
 import DataTable from '../components/tables/DataTable';
 import Modal from '../components/common/Modal';
 import StatusBadge from '../components/common/StatusBadge';
@@ -12,6 +11,7 @@ import LoadingSpinner from '../components/common/LoadingSpinner';
 import { Order, OrderStatusUpdate } from '../types/order';
 import { formatCurrency, formatDate, formatDateTime } from '../utils/formatters';
 import { orderService } from '../services/orderService';
+import { useToastContext } from '../contexts/ToastContext';
 
 const Orders: React.FC = () => {
   const [orders, setOrders] = useState<Order[]>([]);
@@ -33,6 +33,8 @@ const Orders: React.FC = () => {
     total: 0,
     totalPages: 0,
   });
+
+  const { showSuccess, showError } = useToastContext();
 
   // Mock data for demonstration
   const mockOrders: Order[] = [
@@ -269,15 +271,24 @@ const Orders: React.FC = () => {
   const fetchOrders = async () => {
     try {
       setLoading(true);
-      // Replace with actual API call
+      const response = await orderService.getOrders();
+      setOrders(response.data);
+      setPagination(prev => ({
+        ...prev,
+        total: response.pagination.total,
+        totalPages: response.pagination.totalPages
+      }));
+      showSuccess('Orders loaded successfully');
+    } catch (error: any) {
+      console.error('Failed to fetch orders:', error);
+      showError('Failed to load orders', 'Please try refreshing the page');
+      // Fallback to mock data if API fails
       setOrders(mockOrders);
       setPagination(prev => ({
         ...prev,
         total: mockOrders.length,
         totalPages: Math.ceil(mockOrders.length / prev.limit)
       }));
-    } catch (error) {
-      console.error('Failed to fetch orders:', error);
     } finally {
       setLoading(false);
     }
@@ -297,7 +308,7 @@ const Orders: React.FC = () => {
     if (!selectedOrder) return;
 
     try {
-      // await orderService.updateOrderStatus(selectedOrder.id, statusUpdate);
+      await orderService.updateOrderStatus(selectedOrder.id, statusUpdate);
       setOrders(orders.map(order => 
         order.id === selectedOrder.id 
           ? { 
@@ -309,9 +320,10 @@ const Orders: React.FC = () => {
           : order
       ));
       setIsStatusModalOpen(false);
-      console.log('Status updated:', statusUpdate);
-    } catch (error) {
+      showSuccess('Order status updated successfully');
+    } catch (error: any) {
       console.error('Failed to update order status:', error);
+      showError('Failed to update order status', error?.message || 'Please try again');
     }
   };
 
@@ -449,139 +461,137 @@ const Orders: React.FC = () => {
   ];
 
   return (
-    <Layout title="Orders">
-      <div className="space-y-6">
-        {/* Header Actions */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-xl font-semibold text-gray-900">Orders Management</h2>
-            <p className="text-gray-600">Track and manage customer orders</p>
-          </div>
-          <div className="flex items-center space-x-3">
-            <button
-              onClick={fetchOrders}
-              className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-            >
-              <RefreshCw className="h-4 w-4 mr-2 inline" />
-              Refresh
-            </button>
-            <button className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
-              <Download className="h-4 w-4 mr-2 inline" />
-              Export
-            </button>
-          </div>
+    <div className="space-y-6">
+      {/* Header Actions */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-xl font-semibold text-gray-900">Orders Management</h2>
+          <p className="text-gray-600">Track and manage customer orders</p>
         </div>
+        <div className="flex items-center space-x-3">
+          <button
+            onClick={fetchOrders}
+            className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+          >
+            <RefreshCw className="h-4 w-4 mr-2 inline" />
+            Refresh
+          </button>
+          <button className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
+            <Download className="h-4 w-4 mr-2 inline" />
+            Export
+          </button>
+        </div>
+      </div>
 
-        {/* Filters */}
-        <div className="bg-white rounded-lg shadow-sm border p-6">
-          <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Status</label>
-              <select
-                value={filters.status}
-                onChange={(e) => setFilters({...filters, status: e.target.value})}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-              >
-                <option value="">All Statuses</option>
-                <option value="pending">Pending</option>
-                <option value="confirmed">Confirmed</option>
-                <option value="processing">Processing</option>
-                <option value="ready_for_delivery">Ready for Delivery</option>
-                <option value="in_transit">In Transit</option>
-                <option value="delivered">Delivered</option>
-                <option value="cancelled">Cancelled</option>
-              </select>
-            </div>
-            
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Payment Status</label>
-              <select
-                value={filters.paymentStatus}
-                onChange={(e) => setFilters({...filters, paymentStatus: e.target.value})}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-              >
-                <option value="">All Payment Status</option>
-                <option value="pending">Pending</option>
-                <option value="paid">Paid</option>
-                <option value="failed">Failed</option>
-                <option value="refunded">Refunded</option>
-                <option value="partial">Partial</option>
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Delivery Type</label>
-              <select
-                value={filters.deliveryType}
-                onChange={(e) => setFilters({...filters, deliveryType: e.target.value})}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-              >
-                <option value="">All Delivery Types</option>
-                <option value="standard">Standard</option>
-                <option value="express">Express</option>
-                <option value="scheduled">Scheduled</option>
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Date From</label>
-              <input
-                type="date"
-                value={filters.dateFrom}
-                onChange={(e) => setFilters({...filters, dateFrom: e.target.value})}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Date To</label>
-              <input
-                type="date"
-                value={filters.dateTo}
-                onChange={(e) => setFilters({...filters, dateTo: e.target.value})}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-              />
-            </div>
+      {/* Filters */}
+      <div className="bg-white rounded-lg shadow-sm border p-6">
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Status</label>
+            <select
+              value={filters.status}
+              onChange={(e) => setFilters({...filters, status: e.target.value})}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+            >
+              <option value="">All Statuses</option>
+              <option value="pending">Pending</option>
+              <option value="confirmed">Confirmed</option>
+              <option value="processing">Processing</option>
+              <option value="ready_for_delivery">Ready for Delivery</option>
+              <option value="in_transit">In Transit</option>
+              <option value="delivered">Delivered</option>
+              <option value="cancelled">Cancelled</option>
+            </select>
           </div>
           
-          <div className="mt-4 flex justify-end">
-            <button
-              onClick={() => setFilters({ status: '', paymentStatus: '', dateFrom: '', dateTo: '', deliveryType: '' })}
-              className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Payment Status</label>
+            <select
+              value={filters.paymentStatus}
+              onChange={(e) => setFilters({...filters, paymentStatus: e.target.value})}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary-500 focus:border-transparent"
             >
-              Clear Filters
-            </button>
+              <option value="">All Payment Status</option>
+              <option value="pending">Pending</option>
+              <option value="paid">Paid</option>
+              <option value="failed">Failed</option>
+              <option value="refunded">Refunded</option>
+              <option value="partial">Partial</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Delivery Type</label>
+            <select
+              value={filters.deliveryType}
+              onChange={(e) => setFilters({...filters, deliveryType: e.target.value})}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+            >
+              <option value="">All Delivery Types</option>
+              <option value="standard">Standard</option>
+              <option value="express">Express</option>
+              <option value="scheduled">Scheduled</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Date From</label>
+            <input
+              type="date"
+              value={filters.dateFrom}
+              onChange={(e) => setFilters({...filters, dateFrom: e.target.value})}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Date To</label>
+            <input
+              type="date"
+              value={filters.dateTo}
+              onChange={(e) => setFilters({...filters, dateTo: e.target.value})}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+            />
           </div>
         </div>
-
-        {/* Orders Table */}
-        <DataTable
-          data={filteredOrders}
-          columns={columns}
-          loading={loading}
-          onSearch={setSearchQuery}
-          searchPlaceholder="Search orders, customers..."
-          emptyMessage="No orders found"
-          pagination={pagination}
-          onPageChange={(page) => setPagination(prev => ({...prev, page}))}
-        />
-
-        {/* Order Details Modal */}
-        <OrderDetailsModal
-          isOpen={isDetailsModalOpen}
-          onClose={() => setIsDetailsModalOpen(false)}
-          order={selectedOrder}
-        />
-
-        {/* Order Status Update Modal */}
-        <OrderStatusModal
-          isOpen={isStatusModalOpen}
-          onClose={() => setIsStatusModalOpen(false)}
-          order={selectedOrder}
-          onSubmit={handleStatusUpdate}
-        />
+        
+        <div className="mt-4 flex justify-end">
+          <button
+            onClick={() => setFilters({ status: '', paymentStatus: '', dateFrom: '', dateTo: '', deliveryType: '' })}
+            className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+          >
+            Clear Filters
+          </button>
+        </div>
       </div>
-    </Layout>
+
+      {/* Orders Table */}
+      <DataTable
+        data={filteredOrders}
+        columns={columns}
+        loading={loading}
+        onSearch={setSearchQuery}
+        searchPlaceholder="Search orders, customers..."
+        emptyMessage="No orders found"
+        pagination={pagination}
+        onPageChange={(page) => setPagination(prev => ({...prev, page}))}
+      />
+
+      {/* Order Details Modal */}
+      <OrderDetailsModal
+        isOpen={isDetailsModalOpen}
+        onClose={() => setIsDetailsModalOpen(false)}
+        order={selectedOrder}
+      />
+
+      {/* Order Status Update Modal */}
+      <OrderStatusModal
+        isOpen={isStatusModalOpen}
+        onClose={() => setIsStatusModalOpen(false)}
+        order={selectedOrder}
+        onSubmit={handleStatusUpdate}
+      />
+    </div>
   );
 };
 

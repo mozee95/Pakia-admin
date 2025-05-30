@@ -1,14 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Edit, Trash2, Upload, Download, Eye, Package } from 'lucide-react';
-import Layout from '../components/common/Layout';
 import DataTable from '../components/tables/DataTable';
 import Modal from '../components/common/Modal';
 import StatusBadge from '../components/common/StatusBadge';
 import LoadingSpinner from '../components/common/LoadingSpinner';
-import { Product, ProductFormData } from '../types/product';
+import ImageUpload from '../components/forms/ImageUpload';
+import { Product, ProductFormData, ProductImage } from '../types/product';
 import { Category, Brand } from '../types/category';
 import { formatCurrency, formatDate } from '../utils/formatters';
 import { productService } from '../services/productService';
+import { categoryService } from '../services/categoryService';
+import { useToastContext } from '../contexts/ToastContext';
 
 const Products: React.FC = () => {
   const [products, setProducts] = useState<Product[]>([]);
@@ -26,75 +28,7 @@ const Products: React.FC = () => {
     stock: '',
   });
 
-  // Mock data for demonstration
-  const mockProducts: Product[] = [
-    {
-      id: '1',
-      name: 'Premium Cement Bags',
-      slug: 'premium-cement-bags',
-      description: 'High-quality cement bags suitable for all construction projects',
-      shortDescription: 'Premium quality cement for construction',
-      sku: 'CEM-001',
-      categoryId: '1',
-      brandId: '1',
-      basePrice: 12.50,
-      unitOfMeasurement: 'bags',
-      weightKg: 50,
-      stockQuantity: 150,
-      minOrderQuantity: 10,
-      isActive: true,
-      featured: true,
-      averageRating: 4.5,
-      totalReviews: 25,
-      specifications: {},
-      technicalData: {},
-      createdAt: '2024-01-15T10:00:00Z',
-      updatedAt: '2024-01-15T10:00:00Z',
-      images: [],
-      variants: [],
-      category: { id: '1', name: 'Cement', slug: 'cement', displayOrder: 1, isActive: true, createdAt: '', updatedAt: '' },
-      brand: { id: '1', name: 'BuildCorp', slug: 'buildcorp', isActive: true, createdAt: '', updatedAt: '' }
-    },
-    {
-      id: '2',
-      name: 'Steel Reinforcement Bars',
-      slug: 'steel-reinforcement-bars',
-      description: 'High-strength steel bars for concrete reinforcement',
-      shortDescription: 'Steel bars for reinforcement',
-      sku: 'STL-002',
-      categoryId: '2',
-      brandId: '2',
-      basePrice: 45.00,
-      unitOfMeasurement: 'pieces',
-      weightKg: 25,
-      stockQuantity: 75,
-      minOrderQuantity: 5,
-      isActive: true,
-      featured: false,
-      averageRating: 4.8,
-      totalReviews: 18,
-      specifications: {},
-      technicalData: {},
-      createdAt: '2024-01-10T09:00:00Z',
-      updatedAt: '2024-01-10T09:00:00Z',
-      images: [],
-      variants: [],
-      category: { id: '2', name: 'Steel', slug: 'steel', displayOrder: 2, isActive: true, createdAt: '', updatedAt: '' },
-      brand: { id: '2', name: 'SteelMaster', slug: 'steelmaster', isActive: true, createdAt: '', updatedAt: '' }
-    }
-  ];
-
-  const mockCategories: Category[] = [
-    { id: '1', name: 'Cement', slug: 'cement', displayOrder: 1, isActive: true, createdAt: '', updatedAt: '' },
-    { id: '2', name: 'Steel', slug: 'steel', displayOrder: 2, isActive: true, createdAt: '', updatedAt: '' },
-    { id: '3', name: 'Tools', slug: 'tools', displayOrder: 3, isActive: true, createdAt: '', updatedAt: '' },
-  ];
-
-  const mockBrands: Brand[] = [
-    { id: '1', name: 'BuildCorp', slug: 'buildcorp', isActive: true, createdAt: '', updatedAt: '' },
-    { id: '2', name: 'SteelMaster', slug: 'steelmaster', isActive: true, createdAt: '', updatedAt: '' },
-    { id: '3', name: 'ToolPro', slug: 'toolpro', isActive: true, createdAt: '', updatedAt: '' },
-  ];
+  const { showSuccess, showError } = useToastContext();
 
   useEffect(() => {
     fetchData();
@@ -103,12 +37,26 @@ const Products: React.FC = () => {
   const fetchData = async () => {
     try {
       setLoading(true);
-      // Replace with actual API calls
-      setProducts(mockProducts);
-      setCategories(mockCategories);
-      setBrands(mockBrands);
+      
+      // Fetch real data from API services
+      const [productsResponse, categoriesResponse, brandsResponse] = await Promise.all([
+        productService.getProducts(),
+        categoryService.getCategories(),
+        productService.getBrands()
+      ]);
+      
+      setProducts(productsResponse.data);
+      setCategories(categoriesResponse.data);
+      setBrands(brandsResponse.data);
+      showSuccess('Products loaded successfully');
     } catch (error) {
       console.error('Failed to fetch data:', error);
+      showError('Failed to load products', 'Please try refreshing the page');
+      
+      // Set empty arrays on error
+      setProducts([]);
+      setCategories([]);
+      setBrands([]);
     } finally {
       setLoading(false);
     }
@@ -127,10 +75,12 @@ const Products: React.FC = () => {
   const handleDeleteProduct = async (productId: string) => {
     if (window.confirm('Are you sure you want to delete this product?')) {
       try {
-        // await productService.deleteProduct(productId);
+        await productService.deleteProduct(productId);
         setProducts(products.filter(p => p.id !== productId));
-      } catch (error) {
+        showSuccess('Product deleted successfully');
+      } catch (error: any) {
         console.error('Failed to delete product:', error);
+        showError('Failed to delete product', error?.message || 'Please try again');
       }
     }
   };
@@ -140,31 +90,92 @@ const Products: React.FC = () => {
     
     if (window.confirm(`Are you sure you want to delete ${selectedProducts.length} products?`)) {
       try {
-        // await productService.bulkDeleteProducts(selectedProducts);
+        await productService.bulkDeleteProducts(selectedProducts);
         setProducts(products.filter(p => !selectedProducts.includes(p.id)));
         setSelectedProducts([]);
-      } catch (error) {
+        showSuccess(`${selectedProducts.length} products deleted successfully`);
+      } catch (error: any) {
         console.error('Failed to bulk delete products:', error);
+        showError('Failed to delete products', error?.message || 'Please try again');
       }
     }
   };
 
-  const handleFormSubmit = async (formData: ProductFormData) => {
+  const handleFormSubmit = async (formData: ProductFormData, selectedFiles?: FileList | null) => {
     try {
       setIsFormLoading(true);
       
+      // Add validation and logging for debugging
+      console.log('Submitting product data:', formData);
+      
+      // Validate required fields
+      if (!formData.name?.trim()) {
+        showError('Product name is required');
+        return;
+      }
+      if (!formData.sku?.trim()) {
+        showError('SKU is required');
+        return;
+      }
+      if (!formData.categoryId) {
+        showError('Category is required');
+        return;
+      }
+      if (!formData.brandId) {
+        showError('Brand is required');
+        return;
+      }
+      if (!formData.description?.trim()) {
+        showError('Description is required');
+        return;
+      }
+      if (formData.basePrice <= 0) {
+        showError('Base price must be greater than 0');
+        return;
+      }
+      if (formData.stockQuantity < 0) {
+        showError('Stock quantity cannot be negative');
+        return;
+      }
+      if (formData.minOrderQuantity <= 0) {
+        showError('Minimum order quantity must be greater than 0');
+        return;
+      }
+      
       if (editingProduct) {
-        // await productService.updateProduct(editingProduct.id, formData);
-        console.log('Updating product:', formData);
+        await productService.updateProduct(editingProduct.id, formData);
+        showSuccess('Product updated successfully');
       } else {
-        // await productService.createProduct(formData);
-        console.log('Creating product:', formData);
+        // Create product first
+        console.log('Creating product with data:', formData);
+        const response = await productService.createProduct(formData);
+        const newProduct = response.data;
+        
+        // Upload images if any were selected
+        if (selectedFiles && selectedFiles.length > 0) {
+          try {
+            console.log('Uploading images for product:', newProduct.id);
+            await productService.uploadImages(newProduct.id, selectedFiles);
+            showSuccess(`Product created successfully with ${selectedFiles.length} image(s)`);
+          } catch (imageError: any) {
+            console.error('Failed to upload images:', imageError);
+            showSuccess('Product created successfully');
+            showError('Failed to upload images', 'You can add images by editing the product');
+          }
+        } else {
+          showSuccess('Product created successfully');
+        }
       }
       
       setIsModalOpen(false);
       fetchData();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to save product:', error);
+      console.error('Error details:', error.response?.data);
+      showError(
+        editingProduct ? 'Failed to update product' : 'Failed to create product',
+        error?.response?.data?.message || error?.message || 'Please try again'
+      );
     } finally {
       setIsFormLoading(false);
     }
@@ -189,11 +200,23 @@ const Products: React.FC = () => {
       key: 'image',
       label: 'Image',
       width: '80px',
-      render: (value: any, product: Product) => (
-        <div className="w-12 h-12 bg-gray-200 rounded-lg flex items-center justify-center">
-          <Package className="h-6 w-6 text-gray-400" />
-        </div>
-      )
+      render: (value: any, product: Product) => {
+        const primaryImage = product.images?.find(img => img.isPrimary) || product.images?.[0];
+        
+        return (
+          <div className="w-12 h-12 bg-gray-200 rounded-lg flex items-center justify-center overflow-hidden">
+            {primaryImage ? (
+              <img 
+                src={primaryImage.imageUrl} 
+                alt={primaryImage.altText || product.name}
+                className="w-full h-full object-cover"
+              />
+            ) : (
+              <Package className="h-6 w-6 text-gray-400" />
+            )}
+          </div>
+        );
+      }
     },
     {
       key: 'name',
@@ -270,114 +293,112 @@ const Products: React.FC = () => {
   ];
 
   return (
-    <Layout title="Products">
-      <div className="space-y-6">
-        {/* Header Actions */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-xl font-semibold text-gray-900">Products Management</h2>
-            <p className="text-gray-600">Manage your product catalog</p>
-          </div>
-          <div className="flex items-center space-x-3">
-            <button
-              onClick={handleBulkDelete}
-              disabled={selectedProducts.length === 0}
-              className="px-4 py-2 text-sm font-medium text-red-600 bg-red-50 border border-red-200 rounded-lg hover:bg-red-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-            >
-              <Trash2 className="h-4 w-4 mr-2 inline" />
-              Delete Selected ({selectedProducts.length})
-            </button>
-            <button className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
-              <Download className="h-4 w-4 mr-2 inline" />
-              Export
-            </button>
-            <button className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
-              <Upload className="h-4 w-4 mr-2 inline" />
-              Import
-            </button>
-            <button
-              onClick={handleAddProduct}
-              className="px-4 py-2 text-sm font-medium text-white bg-primary-600 rounded-lg hover:bg-primary-700 transition-colors"
-            >
-              <Plus className="h-4 w-4 mr-2 inline" />
-              Add Product
-            </button>
-          </div>
+    <div className="space-y-6">
+      {/* Header Actions */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-xl font-semibold text-gray-900">Products Management</h2>
+          <p className="text-gray-600">Manage your product catalog</p>
         </div>
-
-        {/* Filters */}
-        <div className="bg-white rounded-lg shadow-sm border p-6">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Category</label>
-              <select
-                value={filters.category}
-                onChange={(e) => setFilters({...filters, category: e.target.value})}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-              >
-                <option value="">All Categories</option>
-                {categories.map(category => (
-                  <option key={category.id} value={category.id}>{category.name}</option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Status</label>
-              <select
-                value={filters.status}
-                onChange={(e) => setFilters({...filters, status: e.target.value})}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-              >
-                <option value="">All Status</option>
-                <option value="active">Active</option>
-                <option value="inactive">Inactive</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Stock Level</label>
-              <select
-                value={filters.stock}
-                onChange={(e) => setFilters({...filters, stock: e.target.value})}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-              >
-                <option value="">All Stock Levels</option>
-                <option value="low">Low Stock</option>
-                <option value="normal">Normal Stock</option>
-              </select>
-            </div>
-            <div className="flex items-end">
-              <button
-                onClick={() => setFilters({ category: '', status: '', stock: '' })}
-                className="w-full px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
-              >
-                Clear Filters
-              </button>
-            </div>
-          </div>
+        <div className="flex items-center space-x-3">
+          <button
+            onClick={handleBulkDelete}
+            disabled={selectedProducts.length === 0}
+            className="px-4 py-2 text-sm font-medium text-red-600 bg-red-50 border border-red-200 rounded-lg hover:bg-red-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          >
+            <Trash2 className="h-4 w-4 mr-2 inline" />
+            Delete Selected ({selectedProducts.length})
+          </button>
+          <button className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
+            <Download className="h-4 w-4 mr-2 inline" />
+            Export
+          </button>
+          <button className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
+            <Upload className="h-4 w-4 mr-2 inline" />
+            Import
+          </button>
+          <button
+            onClick={handleAddProduct}
+            className="px-4 py-2 text-sm font-medium text-white bg-primary-600 rounded-lg hover:bg-primary-700 transition-colors"
+          >
+            <Plus className="h-4 w-4 mr-2 inline" />
+            Add Product
+          </button>
         </div>
-
-        {/* Products Table */}
-        <DataTable
-          data={filteredProducts}
-          columns={columns}
-          loading={loading}
-          onSearch={setSearchQuery}
-          searchPlaceholder="Search products..."
-          emptyMessage="No products found"
-        />
-
-        {/* Product Form Modal */}
-        <ProductFormModal
-          isOpen={isModalOpen}
-          onClose={() => setIsModalOpen(false)}
-          onSubmit={handleFormSubmit}
-          product={editingProduct}
-          categories={categories}
-          brands={brands}
-          loading={isFormLoading}
-        />
       </div>
-    </Layout>
+
+      {/* Filters */}
+      <div className="bg-white rounded-lg shadow-sm border p-6">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Category</label>
+            <select
+              value={filters.category}
+              onChange={(e) => setFilters({...filters, category: e.target.value})}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+            >
+              <option value="">All Categories</option>
+              {categories.map(category => (
+                <option key={category.id} value={category.id}>{category.name}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Status</label>
+            <select
+              value={filters.status}
+              onChange={(e) => setFilters({...filters, status: e.target.value})}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+            >
+              <option value="">All Status</option>
+              <option value="active">Active</option>
+              <option value="inactive">Inactive</option>
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Stock Level</label>
+            <select
+              value={filters.stock}
+              onChange={(e) => setFilters({...filters, stock: e.target.value})}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+            >
+              <option value="">All Stock Levels</option>
+              <option value="low">Low Stock</option>
+              <option value="normal">Normal Stock</option>
+            </select>
+          </div>
+          <div className="flex items-end">
+            <button
+              onClick={() => setFilters({ category: '', status: '', stock: '' })}
+              className="w-full px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+            >
+              Clear Filters
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Products Table */}
+      <DataTable
+        data={filteredProducts}
+        columns={columns}
+        loading={loading}
+        onSearch={setSearchQuery}
+        searchPlaceholder="Search products..."
+        emptyMessage="No products found"
+      />
+
+      {/* Product Form Modal */}
+      <ProductFormModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        onSubmit={handleFormSubmit}
+        product={editingProduct}
+        categories={categories}
+        brands={brands}
+        loading={isFormLoading}
+      />
+    </div>
   );
 };
 
@@ -385,7 +406,7 @@ const Products: React.FC = () => {
 interface ProductFormModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (data: ProductFormData) => void;
+  onSubmit: (data: ProductFormData, selectedFiles?: FileList | null) => void;
   product?: Product | null;
   categories: Category[];
   brands: Brand[];
@@ -419,6 +440,14 @@ const ProductFormModal: React.FC<ProductFormModalProps> = ({
     technicalData: {},
   });
 
+  // Image upload states
+  const [existingImages, setExistingImages] = useState<ProductImage[]>([]);
+  const [selectedFiles, setSelectedFiles] = useState<FileList | null>(null);
+  const [uploadingImages, setUploadingImages] = useState(false);
+  const [loadingImages, setLoadingImages] = useState(false);
+  
+  const { showSuccess, showError } = useToastContext();
+
   useEffect(() => {
     if (product) {
       setFormData({
@@ -441,6 +470,9 @@ const ProductFormModal: React.FC<ProductFormModalProps> = ({
         specifications: product.specifications,
         technicalData: product.technicalData,
       });
+      
+      // Load existing images for edit mode
+      loadProductImages(product.id);
     } else {
       setFormData({
         name: '',
@@ -459,12 +491,91 @@ const ProductFormModal: React.FC<ProductFormModalProps> = ({
         specifications: {},
         technicalData: {},
       });
+      setExistingImages([]);
     }
   }, [product]);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const loadProductImages = async (productId: string) => {
+    try {
+      setLoadingImages(true);
+      const response = await productService.getImages(productId);
+      setExistingImages(response.data || []);
+    } catch (error) {
+      console.error('Failed to load product images:', error);
+      showError('Failed to load product images');
+    } finally {
+      setLoadingImages(false);
+    }
+  };
+
+  const handleImagesSelected = (files: FileList) => {
+    setSelectedFiles(files);
+    
+    // If we're editing an existing product, upload immediately
+    if (product) {
+      handleUploadImages(product.id, files);
+    }
+  };
+
+  const handleUploadImages = async (productId: string, files: FileList) => {
+    try {
+      setUploadingImages(true);
+      const response = await productService.uploadImages(productId, files);
+      
+      // Add new images to existing images
+      const newImages = response.data || [];
+      setExistingImages(prev => [...prev, ...newImages]);
+      setSelectedFiles(null);
+      
+      showSuccess(`${newImages.length} image(s) uploaded successfully`);
+    } catch (error: any) {
+      console.error('Failed to upload images:', error);
+      showError('Failed to upload images', error?.message || 'Please try again');
+    } finally {
+      setUploadingImages(false);
+    }
+  };
+
+  const handleDeleteImage = async (imageId: string) => {
+    try {
+      await productService.deleteImage(imageId);
+      setExistingImages(prev => prev.filter(img => img.id !== imageId));
+      showSuccess('Image deleted successfully');
+    } catch (error: any) {
+      console.error('Failed to delete image:', error);
+      showError('Failed to delete image', error?.message || 'Please try again');
+    }
+  };
+
+  const handleSetPrimaryImage = async (imageId: string) => {
+    try {
+      await productService.setPrimaryImage(imageId);
+      setExistingImages(prev => 
+        prev.map(img => ({ ...img, isPrimary: img.id === imageId }))
+      );
+      showSuccess('Primary image updated successfully');
+    } catch (error: any) {
+      console.error('Failed to set primary image:', error);
+      showError('Failed to set primary image', error?.message || 'Please try again');
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    onSubmit(formData);
+    
+    try {
+      // Submit the form data first
+      await onSubmit(formData, selectedFiles);
+      
+      // If creating a new product and there are files selected, we'll need the product ID from the response
+      // This will be handled in the parent component's handleFormSubmit function
+      if (!product && selectedFiles && selectedFiles.length > 0) {
+        // The parent component will handle image upload after product creation
+        // by calling handleUploadImages with the new product ID
+      }
+    } catch (error) {
+      console.error('Form submission error:', error);
+    }
   };
 
   const generateSlug = (name: string) => {
@@ -562,8 +673,9 @@ const ProductFormModal: React.FC<ProductFormModalProps> = ({
               required
               min="0"
               step="0.01"
-              value={formData.basePrice}
+              value={formData.basePrice === 0 ? '' : formData.basePrice}
               onChange={(e) => setFormData({...formData, basePrice: parseFloat(e.target.value) || 0})}
+              placeholder="0.00"
               className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary-500 focus:border-transparent"
             />
           </div>
@@ -617,8 +729,9 @@ const ProductFormModal: React.FC<ProductFormModalProps> = ({
               type="number"
               required
               min="0"
-              value={formData.stockQuantity}
+              value={formData.stockQuantity === 0 ? '' : formData.stockQuantity}
               onChange={(e) => setFormData({...formData, stockQuantity: parseInt(e.target.value) || 0})}
+              placeholder="0"
               className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary-500 focus:border-transparent"
             />
           </div>
@@ -645,6 +758,34 @@ const ProductFormModal: React.FC<ProductFormModalProps> = ({
               onChange={(e) => setFormData({...formData, weightKg: parseFloat(e.target.value) || undefined})}
               className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary-500 focus:border-transparent"
             />
+          </div>
+
+          {/* Product Images */}
+          <div className="md:col-span-2">
+            <h3 className="text-lg font-medium text-gray-900 mb-4">Product Images</h3>
+            {loadingImages ? (
+              <div className="flex items-center justify-center py-8">
+                <LoadingSpinner size="sm" text="Loading images..." />
+              </div>
+            ) : (
+              <ImageUpload
+                existingImages={existingImages}
+                onImagesSelected={handleImagesSelected}
+                onDeleteImage={product ? handleDeleteImage : undefined}
+                onSetPrimaryImage={product ? handleSetPrimaryImage : undefined}
+                maxFiles={5}
+                uploading={uploadingImages}
+                disabled={loading}
+                selectedFiles={!product ? selectedFiles : null}
+              />
+            )}
+            {!product && selectedFiles && selectedFiles.length > 0 && (
+              <div className="mt-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                <p className="text-sm text-blue-700">
+                  📋 {selectedFiles.length} image(s) selected. Images will be uploaded after creating the product.
+                </p>
+              </div>
+            )}
           </div>
 
           {/* Status */}

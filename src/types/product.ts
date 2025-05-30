@@ -4,17 +4,17 @@ export interface Product {
   id: string;
   name: string;
   slug: string;
-  description: string;
-  shortDescription: string;
+  description?: string;
+  shortDescription?: string;
   sku: string;
   categoryId: string;
-  brandId: string;
+  brandId?: string;
   basePrice: number;
   unitOfMeasurement: string;
   weightKg?: number;
   dimensionsCm?: string;
-  specifications: Record<string, any>;
-  technicalData: Record<string, any>;
+  specifications?: Record<string, any>;
+  technicalData?: Record<string, any>;
   isActive: boolean;
   featured: boolean;
   averageRating: number;
@@ -26,14 +26,14 @@ export interface Product {
   updatedAt: string;
   category?: Category;
   brand?: Brand;
-  images: ProductImage[];
-  variants: ProductVariant[];
+  images?: ProductImage[];
+  variants?: ProductVariant[];
 }
 
 export interface ProductImage {
   id: string;
   productId: string;
-  url: string;
+  imageUrl: string;
   altText?: string;
   displayOrder: number;
   isPrimary: boolean;
@@ -47,24 +47,26 @@ export interface ProductVariant {
   variantValue: string;
   priceAdjustment: number;
   stockQuantity: number;
-  skuSuffix: string;
+  skuSuffix?: string;
   isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface ProductFormData {
   name: string;
   slug: string;
-  description: string;
-  shortDescription: string;
+  description?: string;
+  shortDescription?: string;
   sku: string;
   categoryId: string;
-  brandId: string;
+  brandId?: string;
   basePrice: number;
   unitOfMeasurement: string;
   weightKg?: number;
   dimensionsCm?: string;
-  specifications: Record<string, any>;
-  technicalData: Record<string, any>;
+  specifications?: Record<string, any>;
+  technicalData?: Record<string, any>;
   isActive: boolean;
   featured: boolean;
   stockQuantity: number;

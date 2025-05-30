@@ -4,23 +4,63 @@ import { ApiResponse, PaginatedResponse, TableFilters } from '../types/api';
 
 export const orderService = {
   getOrders: async (filters?: TableFilters & { page?: number; limit?: number }): Promise<PaginatedResponse<Order>> => {
-    return apiService.getPaginated<Order>('/orders', filters);
+    try {
+      // Call the backend API directly to handle response format
+      const response = await apiService.get<Order[] | {orders: Order[], total: number}>('/admin/orders', {
+        page: filters?.page || 1,
+        limit: filters?.limit || 10,
+        ...filters
+      });
+      
+      // Handle both possible response formats
+      let orders: Order[];
+      let total: number;
+      
+      if (Array.isArray(response.data)) {
+        // Direct array response
+        orders = response.data;
+        total = response.data.length;
+      } else if (response.data && typeof response.data === 'object' && 'orders' in response.data) {
+        // Object with orders and total
+        orders = response.data.orders;
+        total = response.data.total;
+      } else {
+        // Fallback
+        orders = [];
+        total = 0;
+      }
+      
+      // Transform to expected PaginatedResponse format
+      return {
+        data: orders,
+        pagination: {
+          total: total,
+          page: filters?.page || 1,
+          limit: filters?.limit || 10,
+          totalPages: Math.ceil(total / (filters?.limit || 10))
+        },
+        success: true,
+        message: response.message || 'Orders loaded successfully'
+      };
+    } catch (error) {
+      throw error;
+    }
   },
 
   getOrder: async (id: string): Promise<ApiResponse<Order>> => {
-    return apiService.get<Order>(`/orders/${id}`);
+    return apiService.get<Order>(`/admin/orders/${id}`);
   },
 
   updateOrderStatus: async (id: string, statusData: OrderStatusUpdate): Promise<ApiResponse<Order>> => {
-    return apiService.patch<Order>(`/orders/${id}/status`, statusData);
+    return apiService.patch<Order>(`/admin/orders/${id}/status`, statusData);
   },
 
   cancelOrder: async (id: string, reason?: string): Promise<ApiResponse<Order>> => {
-    return apiService.patch<Order>(`/orders/${id}/cancel`, { reason });
+    return apiService.patch<Order>(`/admin/orders/${id}/cancel`, { reason });
   },
 
   processRefund: async (id: string, amount: number, reason?: string): Promise<ApiResponse<Order>> => {
-    return apiService.post<Order>(`/orders/${id}/refund`, { amount, reason });
+    return apiService.post<Order>(`/admin/orders/${id}/refund`, { amount, reason });
   },
 
   getOrderStats: async (dateRange?: { from: string; to: string }): Promise<ApiResponse<{
@@ -31,14 +71,14 @@ export const orderService = {
     revenueGrowth: number;
     orderGrowth: number;
   }>> => {
-    return apiService.get('/orders/stats', dateRange);
+    return apiService.get('/admin/orders/stats', dateRange);
   },
 
   getRecentOrders: async (limit: number = 10): Promise<ApiResponse<Order[]>> => {
-    return apiService.get<Order[]>('/orders/recent', { limit });
+    return apiService.get<Order[]>('/admin/orders/recent', { limit });
   },
 
   bulkUpdateStatus: async (ids: string[], status: Order['status']): Promise<ApiResponse<void>> => {
-    return apiService.patch<void>('/orders/bulk-status', { ids, status });
+    return apiService.patch<void>('/admin/orders/bulk-status', { ids, status });
   },
 }; 
