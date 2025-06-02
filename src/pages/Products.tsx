@@ -107,6 +107,19 @@ const Products: React.FC = () => {
       
       // Add validation and logging for debugging
       console.log('Submitting product data:', formData);
+      console.log('Form data details:', {
+        name: formData.name,
+        sku: formData.sku,
+        categoryId: formData.categoryId,
+        brandId: formData.brandId,
+        description: formData.description,
+        basePrice: formData.basePrice,
+        stockQuantity: formData.stockQuantity,
+        minOrderQuantity: formData.minOrderQuantity,
+        isActive: formData.isActive,
+        featured: formData.featured,
+        unitOfMeasurement: formData.unitOfMeasurement
+      });
       
       // Validate required fields
       if (!formData.name?.trim()) {
@@ -142,13 +155,36 @@ const Products: React.FC = () => {
         return;
       }
       
+      // Transform data to match backend expectations
+      const backendData = {
+        name: formData.name,
+        sku: formData.sku,
+        price: formData.basePrice, // Backend expects 'price' not 'basePrice'
+        stockQuantity: formData.stockQuantity,
+        categoryId: formData.categoryId || undefined,
+        brandId: formData.brandId || undefined,
+        description: formData.description,
+        shortDescription: formData.shortDescription,
+        unitOfMeasurement: formData.unitOfMeasurement,
+        minOrderQuantity: formData.minOrderQuantity,
+        maxOrderQuantity: formData.maxOrderQuantity,
+        weightKg: formData.weightKg,
+        dimensionsCm: formData.dimensionsCm,
+        specifications: formData.specifications,
+        technicalData: formData.technicalData,
+        isActive: formData.isActive,
+        featured: formData.featured,
+        slug: formData.slug
+      };
+      
       if (editingProduct) {
-        await productService.updateProduct(editingProduct.id, formData);
+        await productService.updateProduct(editingProduct.id, backendData);
         showSuccess('Product updated successfully');
       } else {
         // Create product first
-        console.log('Creating product with data:', formData);
-        const response = await productService.createProduct(formData);
+        console.log('Creating product with backend data:', backendData);
+        const response = await productService.createProduct(backendData);
+        console.log('Product creation response:', response);
         const newProduct = response.data;
         
         // Upload images if any were selected
@@ -171,10 +207,22 @@ const Products: React.FC = () => {
       fetchData();
     } catch (error: any) {
       console.error('Failed to save product:', error);
-      console.error('Error details:', error.response?.data);
+      console.error('Error response:', error.response);
+      console.error('Error message:', error.message);
+      
+      // Try to extract more detailed error information
+      let errorMessage = error?.message || 'Please try again';
+      if (error.response?.data?.message) {
+        errorMessage = error.response.data.message;
+      } else if (error.response?.data?.errors) {
+        errorMessage = Array.isArray(error.response.data.errors) 
+          ? error.response.data.errors.join(', ')
+          : JSON.stringify(error.response.data.errors);
+      }
+      
       showError(
         editingProduct ? 'Failed to update product' : 'Failed to create product',
-        error?.response?.data?.message || error?.message || 'Please try again'
+        errorMessage
       );
     } finally {
       setIsFormLoading(false);
@@ -522,14 +570,24 @@ const ProductFormModal: React.FC<ProductFormModalProps> = ({
       setUploadingImages(true);
       const response = await productService.uploadImages(productId, files);
       
-      // Add new images to existing images
-      const newImages = response.data || [];
+      // Add new images to existing images - ensure we have an array
+      let newImages: ProductImage[] = [];
+      if (response.data) {
+        if (Array.isArray(response.data)) {
+          newImages = response.data;
+        } else {
+          // If response.data is a single object, wrap it in an array
+          newImages = [response.data] as ProductImage[];
+        }
+      }
+      
       setExistingImages(prev => [...prev, ...newImages]);
       setSelectedFiles(null);
       
       showSuccess(`${newImages.length} image(s) uploaded successfully`);
     } catch (error: any) {
       console.error('Failed to upload images:', error);
+      console.error('Error details:', error.response?.data);
       showError('Failed to upload images', error?.message || 'Please try again');
     } finally {
       setUploadingImages(false);

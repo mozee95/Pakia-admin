@@ -72,4 +72,26 @@ export interface ProductFormData {
   stockQuantity: number;
   minOrderQuantity: number;
   maxOrderQuantity?: number;
+}
+
+// Backend API format - matches what the backend DTO expects
+export interface ProductBackendData {
+  name: string;
+  sku: string;
+  price: number; // Backend uses 'price' instead of 'basePrice'
+  stockQuantity: number;
+  categoryId?: string;
+  brandId?: string;
+  description?: string;
+  shortDescription?: string;
+  unitOfMeasurement?: string;
+  minOrderQuantity?: number;
+  maxOrderQuantity?: number;
+  weightKg?: number;
+  dimensionsCm?: string;
+  specifications?: Record<string, any>;
+  technicalData?: Record<string, any>;
+  isActive?: boolean;
+  featured?: boolean;
+  slug?: string;
 } 

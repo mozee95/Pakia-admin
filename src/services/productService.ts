@@ -1,5 +1,5 @@
 import { apiService } from './api';
-import { Product, ProductFormData, ProductImage } from '../types/product';
+import { Product, ProductFormData, ProductImage, ProductBackendData } from '../types/product';
 import { Category, Brand } from '../types/category';
 import { ApiResponse, PaginatedResponse, TableFilters } from '../types/api';
 
@@ -35,12 +35,12 @@ export const productService = {
   },
 
   // Create new product
-  createProduct: async (data: ProductFormData): Promise<ApiResponse<Product>> => {
+  createProduct: async (data: ProductBackendData): Promise<ApiResponse<Product>> => {
     return apiService.post<Product>('/admin/products', data);
   },
 
   // Update existing product
-  updateProduct: async (id: string, data: Partial<ProductFormData>): Promise<ApiResponse<Product>> => {
+  updateProduct: async (id: string, data: Partial<ProductBackendData>): Promise<ApiResponse<Product>> => {
     return apiService.patch<Product>(`/admin/products/${id}`, data);
   },
 
