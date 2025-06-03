@@ -27,29 +27,58 @@ const Products: React.FC = () => {
     status: '',
     stock: '',
   });
+  
+  // Add pagination state
+  const [pagination, setPagination] = useState({
+    page: 1,
+    limit: 20, // Increase default limit to show more products
+    total: 0,
+    totalPages: 0,
+  });
 
   const { showSuccess, showError } = useToastContext();
 
   useEffect(() => {
     fetchData();
-  }, []);
+  }, [searchQuery]); // Refetch when search changes since API supports server-side search
 
   const fetchData = async () => {
     try {
       setLoading(true);
       
-      // Fetch real data from API services
+      // Use API with proper limit to get all products
+      console.log('Fetching all products with API limit parameter');
+      
       const [productsResponse, categoriesResponse, brandsResponse] = await Promise.all([
-        productService.getProducts(),
+        productService.getProducts({ 
+          search: searchQuery, 
+          limit: 100,  // Get all products for now, can be changed to pagination.limit for true pagination
+          page: 1      // Always get first page since we're getting all with high limit
+        }),
         categoryService.getCategories(),
         productService.getBrands()
       ]);
       
-      setProducts(productsResponse.data);
+      console.log('Products fetched successfully:', {
+        count: productsResponse.data?.length,
+        total: productsResponse.pagination?.total
+      });
+      
+      // Set all products
+      const allProducts = productsResponse.data || [];
+      setProducts(allProducts);
+      
+      // Set pagination based on API response
+      setPagination(prev => ({
+        ...prev,
+        total: productsResponse.pagination?.total || allProducts.length,
+        totalPages: Math.ceil((productsResponse.pagination?.total || allProducts.length) / prev.limit),
+      }));
+      
       setCategories(categoriesResponse.data);
       setBrands(brandsResponse.data);
       showSuccess('Products loaded successfully');
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to fetch data:', error);
       showError('Failed to load products', 'Please try refreshing the page');
       
@@ -60,6 +89,23 @@ const Products: React.FC = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  // Add page change handler
+  const handlePageChange = (page: number) => {
+    setPagination(prev => ({ ...prev, page }));
+  };
+
+  // Update search handler to reset to first page
+  const handleSearch = (query: string) => {
+    setSearchQuery(query);
+    setPagination(prev => ({ ...prev, page: 1 }));
+  };
+
+  // Update filter handlers to reset to first page
+  const handleFiltersChange = (newFilters: typeof filters) => {
+    setFilters(newFilters);
+    setPagination(prev => ({ ...prev, page: 1 }));
   };
 
   const handleAddProduct = () => {
@@ -229,19 +275,44 @@ const Products: React.FC = () => {
     }
   };
 
+  // Client-side filtering and pagination since API doesn't support server-side yet
   const filteredProducts = products.filter(product => {
-    const matchesSearch = product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         product.sku.toLowerCase().includes(searchQuery.toLowerCase());
+    // Search filter
+    const matchesSearch = !searchQuery || 
+      product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      product.sku.toLowerCase().includes(searchQuery.toLowerCase());
+    
+    // Category filter  
     const matchesCategory = !filters.category || product.categoryId === filters.category;
+    
+    // Status filter
     const matchesStatus = !filters.status || 
-                         (filters.status === 'active' && product.isActive) ||
-                         (filters.status === 'inactive' && !product.isActive);
+      (filters.status === 'active' && product.isActive) ||
+      (filters.status === 'inactive' && !product.isActive);
+    
+    // Stock filter
     const matchesStock = !filters.stock ||
-                        (filters.stock === 'low' && product.stockQuantity < product.minOrderQuantity) ||
-                        (filters.stock === 'normal' && product.stockQuantity >= product.minOrderQuantity);
+      (filters.stock === 'low' && product.stockQuantity < product.minOrderQuantity) ||
+      (filters.stock === 'normal' && product.stockQuantity >= product.minOrderQuantity);
     
     return matchesSearch && matchesCategory && matchesStatus && matchesStock;
   });
+
+  // Client-side pagination
+  const startIndex = (pagination.page - 1) * pagination.limit;
+  const endIndex = startIndex + pagination.limit;
+  const paginatedProducts = filteredProducts.slice(startIndex, endIndex);
+
+  // Update pagination totals when filters change
+  useEffect(() => {
+    const totalFiltered = filteredProducts.length;
+    setPagination(prev => ({
+      ...prev,
+      total: totalFiltered,
+      totalPages: Math.ceil(totalFiltered / prev.limit),
+      page: prev.page > Math.ceil(totalFiltered / prev.limit) ? 1 : prev.page // Reset to page 1 if current page is beyond total
+    }));
+  }, [filteredProducts.length, pagination.limit]);
 
   const columns = [
     {
@@ -382,7 +453,7 @@ const Products: React.FC = () => {
             <label className="block text-sm font-medium text-gray-700 mb-2">Category</label>
             <select
               value={filters.category}
-              onChange={(e) => setFilters({...filters, category: e.target.value})}
+              onChange={(e) => handleFiltersChange({...filters, category: e.target.value})}
               className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary-500 focus:border-transparent"
             >
               <option value="">All Categories</option>
@@ -395,7 +466,7 @@ const Products: React.FC = () => {
             <label className="block text-sm font-medium text-gray-700 mb-2">Status</label>
             <select
               value={filters.status}
-              onChange={(e) => setFilters({...filters, status: e.target.value})}
+              onChange={(e) => handleFiltersChange({...filters, status: e.target.value})}
               className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary-500 focus:border-transparent"
             >
               <option value="">All Status</option>
@@ -407,7 +478,7 @@ const Products: React.FC = () => {
             <label className="block text-sm font-medium text-gray-700 mb-2">Stock Level</label>
             <select
               value={filters.stock}
-              onChange={(e) => setFilters({...filters, stock: e.target.value})}
+              onChange={(e) => handleFiltersChange({...filters, stock: e.target.value})}
               className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary-500 focus:border-transparent"
             >
               <option value="">All Stock Levels</option>
@@ -417,7 +488,7 @@ const Products: React.FC = () => {
           </div>
           <div className="flex items-end">
             <button
-              onClick={() => setFilters({ category: '', status: '', stock: '' })}
+              onClick={() => handleFiltersChange({ category: '', status: '', stock: '' })}
               className="w-full px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
             >
               Clear Filters
@@ -428,10 +499,12 @@ const Products: React.FC = () => {
 
       {/* Products Table */}
       <DataTable
-        data={filteredProducts}
+        data={paginatedProducts}
         columns={columns}
         loading={loading}
-        onSearch={setSearchQuery}
+        pagination={pagination}
+        onPageChange={handlePageChange}
+        onSearch={handleSearch}
         searchPlaceholder="Search products..."
         emptyMessage="No products found"
       />
