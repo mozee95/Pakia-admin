@@ -6,41 +6,45 @@ export const orderService = {
   getOrders: async (filters?: TableFilters & { page?: number; limit?: number }): Promise<PaginatedResponse<Order>> => {
     try {
       // Call the backend API directly to handle response format
-      const response = await apiService.get<Order[] | {orders: Order[], total: number}>('/admin/orders', {
+      const response = await apiService.get<{
+        success: boolean;
+        message: string;
+        data: Order[];
+        pagination: {
+          currentPage: number;
+          limit: number;
+          total: number;
+          totalPages: number;
+        };
+      }>('/admin/orders', {
         page: filters?.page || 1,
         limit: filters?.limit || 10,
         ...filters
       });
       
-      // Handle both possible response formats
-      let orders: Order[];
-      let total: number;
+      console.log('Orders API Response:', response);
       
-      if (Array.isArray(response.data)) {
-        // Direct array response
-        orders = response.data;
-        total = response.data.length;
-      } else if (response.data && typeof response.data === 'object' && 'orders' in response.data) {
-        // Object with orders and total
-        orders = response.data.orders;
-        total = response.data.total;
-      } else {
-        // Fallback
-        orders = [];
-        total = 0;
-      }
+      // Handle the new backend response format - access nested data
+      const backendResponse = response.data;
+      const orders = backendResponse?.data || [];
+      const pagination = backendResponse?.pagination || {
+        currentPage: 1,
+        limit: 10,
+        total: 0,
+        totalPages: 0
+      };
       
       // Transform to expected PaginatedResponse format
       return {
         data: orders,
         pagination: {
-          total: total,
-          page: filters?.page || 1,
-          limit: filters?.limit || 10,
-          totalPages: Math.ceil(total / (filters?.limit || 10))
+          total: pagination.total,
+          page: pagination.currentPage,
+          limit: pagination.limit,
+          totalPages: pagination.totalPages
         },
         success: true,
-        message: response.message || 'Orders loaded successfully'
+        message: backendResponse?.message || 'Orders loaded successfully'
       };
     } catch (error) {
       throw error;

@@ -266,12 +266,57 @@ const Orders: React.FC = () => {
 
   useEffect(() => {
     fetchOrders();
-  }, [pagination.page, pagination.limit, filters]);
+  }, [pagination.page, pagination.limit, filters, searchQuery]);
 
   const fetchOrders = async () => {
     try {
       setLoading(true);
-      const response = await orderService.getOrders();
+      
+      // Simplified parameters for testing - only basic pagination
+      const basicParams = {
+        page: pagination.page,
+        limit: pagination.limit,
+        search: '' // Required by TableFilters interface
+      };
+      
+      // Advanced parameters that might be causing issues
+      const advancedParams = {
+        search: searchQuery,
+        status: filters.status,
+        paymentStatus: filters.paymentStatus,
+        deliveryType: filters.deliveryType,
+        dateFrom: filters.dateFrom,
+        dateTo: filters.dateTo
+      };
+      
+      console.log('=== ORDERS API DEBUGGING ===');
+      console.log('Testing with basic parameters first:', basicParams);
+      console.log('Advanced parameters (may cause issues):', advancedParams);
+      
+      // Try basic call first
+      console.log('🔍 Attempting basic API call...');
+      let response: any;
+      
+      try {
+        response = await orderService.getOrders(basicParams);
+        console.log('✅ Basic API call successful:', {
+          dataLength: response.data?.length,
+          pagination: response.pagination,
+          message: response.message,
+          firstOrder: response.data?.[0]
+        });
+      } catch (basicError) {
+        console.log('❌ Basic API call failed, trying without any parameters...');
+        console.error('Basic error:', basicError);
+        
+        // Try with no parameters at all
+        response = await orderService.getOrders();
+        console.log('✅ No-params API call result:', {
+          dataLength: response.data?.length,
+          pagination: response.pagination
+        });
+      }
+      
       setOrders(response.data);
       setPagination(prev => ({
         ...prev,
@@ -280,9 +325,19 @@ const Orders: React.FC = () => {
       }));
       showSuccess('Orders loaded successfully');
     } catch (error: any) {
-      console.error('Failed to fetch orders:', error);
+      console.error('❌ All API calls failed:', error);
+      console.error('Final error details:', {
+        message: error?.message,
+        status: error?.response?.status,
+        statusText: error?.response?.statusText,
+        data: error?.response?.data,
+        url: error?.config?.url,
+        method: error?.config?.method
+      });
+      
       showError('Failed to load orders', 'Please try refreshing the page');
-      // Fallback to mock data if API fails
+      
+      console.log('📋 Falling back to mock data');
       setOrders(mockOrders);
       setPagination(prev => ({
         ...prev,
@@ -327,25 +382,8 @@ const Orders: React.FC = () => {
     }
   };
 
-  const filteredOrders = orders.filter(order => {
-    const matchesSearch = order.orderNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         order.user?.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         `${order.user?.firstName} ${order.user?.lastName}`.toLowerCase().includes(searchQuery.toLowerCase());
-    
-    const matchesStatus = !filters.status || order.status === filters.status;
-    const matchesPaymentStatus = !filters.paymentStatus || order.paymentStatus === filters.paymentStatus;
-    const matchesDeliveryType = !filters.deliveryType || order.deliveryType === filters.deliveryType;
-    
-    let matchesDateRange = true;
-    if (filters.dateFrom) {
-      matchesDateRange = matchesDateRange && new Date(order.createdAt) >= new Date(filters.dateFrom);
-    }
-    if (filters.dateTo) {
-      matchesDateRange = matchesDateRange && new Date(order.createdAt) <= new Date(filters.dateTo + 'T23:59:59');
-    }
-
-    return matchesSearch && matchesStatus && matchesPaymentStatus && matchesDeliveryType && matchesDateRange;
-  });
+  // Use orders directly since filtering is now done server-side
+  const displayOrders = orders;
 
   const getStatusIcon = (status: Order['status']) => {
     switch (status) {
@@ -567,7 +605,7 @@ const Orders: React.FC = () => {
 
       {/* Orders Table */}
       <DataTable
-        data={filteredOrders}
+        data={displayOrders}
         columns={columns}
         loading={loading}
         onSearch={setSearchQuery}
