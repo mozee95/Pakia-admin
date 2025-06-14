@@ -26,8 +26,7 @@ const sidebarItems: SidebarItem[] = [
   { id: 'brands', label: 'Brands', icon: Building2, path: '/admin/brands' },
   { id: 'orders', label: 'Orders', icon: ShoppingCart, path: '/admin/orders' },
   { id: 'users', label: 'Users', icon: Users, path: '/admin/users' },
-  { id: 'analytics', label: 'Analytics', icon: TrendingUp, path: '/admin/analytics' },
-  { id: 'settings', label: 'Settings', icon: Settings, path: '/admin/settings' }
+
 ];
 
 interface SidebarProps {

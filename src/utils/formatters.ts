@@ -1,5 +1,7 @@
-export const formatCurrency = (amount: number, currency: string = 'USD'): string => {
-  return new Intl.NumberFormat('en-US', {
+import { CURRENCY } from './constants';
+
+export const formatCurrency = (amount: number, currency: string = CURRENCY.DEFAULT): string => {
+  return new Intl.NumberFormat(CURRENCY.LOCALE, {
     style: 'currency',
     currency,
   }).format(amount);

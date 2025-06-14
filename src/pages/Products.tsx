@@ -8,6 +8,7 @@ import ImageUpload from '../components/forms/ImageUpload';
 import { Product, ProductFormData, ProductImage } from '../types/product';
 import { Category, Brand } from '../types/category';
 import { formatCurrency, formatDate } from '../utils/formatters';
+import { API_BASE_URL } from '../utils/constants';
 import { productService } from '../services/productService';
 import { categoryService } from '../services/categoryService';
 import { useToastContext } from '../contexts/ToastContext';
@@ -223,9 +224,62 @@ const Products: React.FC = () => {
         slug: formData.slug
       };
       
+      // Log each field with type and value for debugging
+      console.log('🔍 Detailed field analysis:', {
+        name: { value: backendData.name, type: typeof backendData.name, length: backendData.name?.length },
+        sku: { value: backendData.sku, type: typeof backendData.sku, length: backendData.sku?.length },
+        price: { value: backendData.price, type: typeof backendData.price, isNumber: !isNaN(backendData.price) },
+        stockQuantity: { value: backendData.stockQuantity, type: typeof backendData.stockQuantity, isInteger: Number.isInteger(backendData.stockQuantity) },
+        categoryId: { value: backendData.categoryId, type: typeof backendData.categoryId, isEmpty: !backendData.categoryId },
+        brandId: { value: backendData.brandId, type: typeof backendData.brandId, isEmpty: !backendData.brandId },
+        description: { value: backendData.description?.slice(0, 50) + '...', type: typeof backendData.description, length: backendData.description?.length },
+        shortDescription: { value: backendData.shortDescription?.slice(0, 30) + '...', type: typeof backendData.shortDescription, length: backendData.shortDescription?.length },
+        unitOfMeasurement: { value: backendData.unitOfMeasurement, type: typeof backendData.unitOfMeasurement },
+        minOrderQuantity: { value: backendData.minOrderQuantity, type: typeof backendData.minOrderQuantity, isInteger: Number.isInteger(backendData.minOrderQuantity) },
+        maxOrderQuantity: { value: backendData.maxOrderQuantity, type: typeof backendData.maxOrderQuantity, isInteger: backendData.maxOrderQuantity ? Number.isInteger(backendData.maxOrderQuantity) : 'undefined' },
+        weightKg: { value: backendData.weightKg, type: typeof backendData.weightKg, isNumber: backendData.weightKg ? !isNaN(backendData.weightKg) : 'undefined' },
+        dimensionsCm: { value: backendData.dimensionsCm, type: typeof backendData.dimensionsCm },
+        isActive: { value: backendData.isActive, type: typeof backendData.isActive },
+        featured: { value: backendData.featured, type: typeof backendData.featured },
+        slug: { value: backendData.slug, type: typeof backendData.slug, length: backendData.slug?.length }
+      });
+      
       if (editingProduct) {
-        await productService.updateProduct(editingProduct.id, backendData);
-        showSuccess('Product updated successfully');
+        console.log('=== PRODUCT UPDATE DEBUGGING ===');
+        console.log('Updating product ID:', editingProduct.id);
+        console.log('Backend data being sent:', backendData);
+        
+        try {
+          const updateResponse = await productService.updateProduct(editingProduct.id, backendData);
+          console.log('✅ Update response received:', {
+            success: updateResponse.success,
+            message: updateResponse.message,
+            data: updateResponse.data,
+            hasData: !!updateResponse.data
+          });
+          
+          // Check if response indicates success
+          if (updateResponse.success !== false) {
+            console.log('✅ Backend indicates success');
+            showSuccess('Product updated successfully');
+          } else {
+            console.log('❌ Backend indicates failure');
+            throw new Error(updateResponse.message || 'Backend returned unsuccessful response');
+          }
+        } catch (updateError: any) {
+          console.log('❌ Update error caught:', {
+            errorType: typeof updateError,
+            errorMessage: updateError?.message,
+            errorName: updateError?.name,
+            errorStack: updateError?.stack,
+            errorResponse: updateError?.response,
+            isAxiosError: updateError?.isAxiosError,
+            responseStatus: updateError?.response?.status,
+            responseData: updateError?.response?.data,
+            responseHeaders: updateError?.response?.headers
+          });
+          throw updateError; // Re-throw to be caught by main catch block
+        }
       } else {
         // Create product first
         console.log('Creating product with backend data:', backendData);
@@ -322,17 +376,31 @@ const Products: React.FC = () => {
       render: (value: any, product: Product) => {
         const primaryImage = product.images?.find(img => img.isPrimary) || product.images?.[0];
         
+        const getImageUrl = (url: string) => {
+          if (!url) return '';
+          if (url.startsWith('http')) return url;
+          // Remove any leading slashes to avoid double slashes
+          const cleanUrl = url.replace(/^\/+/, '');
+          return `${API_BASE_URL}/${cleanUrl}`;
+        };
+        
         return (
           <div className="w-12 h-12 bg-gray-200 rounded-lg flex items-center justify-center overflow-hidden">
             {primaryImage ? (
               <img 
-                src={primaryImage.imageUrl} 
+                src={getImageUrl(primaryImage.imageUrl)} 
                 alt={primaryImage.altText || product.name}
                 className="w-full h-full object-cover"
+                onError={(e) => {
+                  // If image fails to load, show the package icon
+                  e.currentTarget.style.display = 'none';
+                  e.currentTarget.parentElement?.querySelector('.fallback-icon')?.classList.remove('hidden');
+                }}
               />
             ) : (
               <Package className="h-6 w-6 text-gray-400" />
             )}
+            <Package className="h-6 w-6 text-gray-400 fallback-icon hidden" />
           </div>
         );
       }

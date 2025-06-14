@@ -1,4 +1,11 @@
-export const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3000/api';
+export const API_BASE_URL = process.env.REACT_APP_API_URL ;
+
+export const CURRENCY = {
+  DEFAULT: 'TZS',
+  LOCALE: 'en-TZ',
+  SYMBOL: 'TSh',
+  NAME: 'Tanzanian Shilling',
+} as const;
 
 export const ORDER_STATUSES = {
   PENDING: 'pending',

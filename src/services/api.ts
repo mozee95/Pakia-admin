@@ -33,17 +33,67 @@ class ApiService {
       }
     }
 
+    console.log('🌐 Making HTTP request:', {
+      url,
+      method: options.method || 'GET',
+      headers: {...headers, Authorization: headers.Authorization ? '[HIDDEN]' : undefined},
+      bodyPreview: options.body ? JSON.stringify(JSON.parse(options.body as string)).slice(0, 200) + '...' : undefined
+    });
+
     const response = await fetch(url, {
       ...options,
       headers,
     });
 
+    console.log('📡 HTTP response received:', {
+      status: response.status,
+      statusText: response.statusText,
+      ok: response.ok,
+      headers: Object.fromEntries(response.headers.entries())
+    });
+
     if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.message || 'API request failed');
+      let errorBody;
+      try {
+        errorBody = await response.json();
+      } catch {
+        errorBody = await response.text();
+      }
+      
+      console.log('❌ Non-OK HTTP response:', {
+        status: response.status,
+        statusText: response.statusText,
+        errorBody,
+        errorBodyType: typeof errorBody,
+        errorBodyString: JSON.stringify(errorBody, null, 2)
+      });
+      
+      // Extract the actual error message from the backend response
+      let errorMessage = 'API request failed';
+      if (errorBody && typeof errorBody === 'object') {
+        if (errorBody.message) {
+          errorMessage = errorBody.message;
+        } else if (errorBody.error) {
+          errorMessage = errorBody.error;
+        } else if (errorBody.errors && Array.isArray(errorBody.errors)) {
+          errorMessage = errorBody.errors.join(', ');
+        }
+      } else if (typeof errorBody === 'string') {
+        errorMessage = errorBody;
+      }
+      
+      throw new Error(errorMessage);
     }
 
-    return response.json();
+    const responseBody = await response.json();
+    console.log('✅ HTTP response parsed:', {
+      bodyPreview: JSON.stringify(responseBody).slice(0, 300) + '...',
+      hasData: !!responseBody.data,
+      success: responseBody.success,
+      message: responseBody.message
+    });
+
+    return responseBody;
   }
 
   // Generic CRUD methods
@@ -62,10 +112,34 @@ class ApiService {
   }
 
   async patch<T>(endpoint: string, data: any): Promise<ApiResponse<T>> {
-    return this.request<ApiResponse<T>>(endpoint, {
-      method: 'PATCH',
-      body: JSON.stringify(data),
-    });
+    console.log('=== API PATCH DEBUGGING ===');
+    console.log('Endpoint:', endpoint);
+    console.log('Data being sent:', data);
+    
+    try {
+      const response = await this.request<ApiResponse<T>>(endpoint, {
+        method: 'PATCH',
+        body: JSON.stringify(data),
+      });
+      
+      console.log('✅ PATCH response received:', {
+        response,
+        hasData: !!response.data,
+        success: response.success,
+        message: response.message
+      });
+      
+      return response;
+    } catch (error: any) {
+      console.log('❌ PATCH error:', {
+        errorType: typeof error,
+        errorMessage: error?.message,
+        errorName: error?.name,
+        errorStack: error?.stack?.slice(0, 200),
+        isInstanceofError: error instanceof Error
+      });
+      throw error;
+    }
   }
 
   async put<T>(endpoint: string, data: any): Promise<ApiResponse<T>> {

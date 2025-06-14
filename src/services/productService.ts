@@ -3,7 +3,7 @@ import { Product, ProductFormData, ProductImage, ProductBackendData } from '../t
 import { Category, Brand } from '../types/category';
 import { ApiResponse, PaginatedResponse, TableFilters } from '../types/api';
 
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3000/api';
+const API_BASE_URL = process.env.REACT_APP_API_URL;
 
 export const productService = {
   // Use admin endpoints

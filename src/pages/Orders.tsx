@@ -10,6 +10,7 @@ import StatusBadge from '../components/common/StatusBadge';
 import LoadingSpinner from '../components/common/LoadingSpinner';
 import { Order, OrderStatusUpdate } from '../types/order';
 import { formatCurrency, formatDate, formatDateTime } from '../utils/formatters';
+import { CURRENCY } from '../utils/constants';
 import { orderService } from '../services/orderService';
 import { useToastContext } from '../contexts/ToastContext';
 
@@ -33,6 +34,8 @@ const Orders: React.FC = () => {
     total: 0,
     totalPages: 0,
   });
+  const [isItemsModalOpen, setIsItemsModalOpen] = useState(false);
+  const [selectedOrderForItems, setSelectedOrderForItems] = useState<Order | null>(null);
 
   const { showSuccess, showError } = useToastContext();
 
@@ -48,7 +51,7 @@ const Orders: React.FC = () => {
       taxAmount: 47.50,
       discountAmount: 0,
       totalAmount: 522.50,
-      currency: 'USD',
+      currency: CURRENCY.DEFAULT,
       paymentStatus: 'paid',
       paymentMethod: 'Credit Card',
       deliveryAddress: {
@@ -155,7 +158,7 @@ const Orders: React.FC = () => {
       taxAmount: 19.50,
       discountAmount: 10.00,
       totalAmount: 204.50,
-      currency: 'USD',
+      currency: CURRENCY.DEFAULT,
       paymentStatus: 'paid',
       paymentMethod: 'Bank Transfer',
       deliveryAddress: {
@@ -230,7 +233,7 @@ const Orders: React.FC = () => {
       taxAmount: 34.00,
       discountAmount: 0,
       totalAmount: 374.00,
-      currency: 'USD',
+      currency: CURRENCY.DEFAULT,
       paymentStatus: 'paid',
       paymentMethod: 'Credit Card',
       deliveryAddress: {
@@ -382,6 +385,11 @@ const Orders: React.FC = () => {
     }
   };
 
+  const handleViewItems = (order: Order) => {
+    setSelectedOrderForItems(order);
+    setIsItemsModalOpen(true);
+  };
+
   // Use orders directly since filtering is now done server-side
   const displayOrders = orders;
 
@@ -404,7 +412,12 @@ const Orders: React.FC = () => {
       label: 'Order #',
       render: (value: any, order: Order) => (
         <div>
-          <p className="font-medium text-gray-900">{order.orderNumber}</p>
+          <button
+            onClick={() => handleViewItems(order)}
+            className="text-primary-600 hover:text-primary-700 font-medium text-left"
+          >
+            {order.orderNumber}
+          </button>
           <p className="text-sm text-gray-500">{formatDate(order.createdAt)}</p>
         </div>
       )
@@ -629,6 +642,70 @@ const Orders: React.FC = () => {
         order={selectedOrder}
         onSubmit={handleStatusUpdate}
       />
+
+      {/* Order Items Modal */}
+      <Modal
+        isOpen={isItemsModalOpen}
+        onClose={() => setIsItemsModalOpen(false)}
+        title={`Order Items - ${selectedOrderForItems?.orderNumber}`}
+        size="md"
+      >
+        {selectedOrderForItems && (
+          <div className="space-y-4">
+            <div className="border rounded-lg overflow-hidden">
+              <table className="w-full">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-900">Product</th>
+                    <th className="px-4 py-3 text-right text-sm font-medium text-gray-900">Qty</th>
+                    <th className="px-4 py-3 text-right text-sm font-medium text-gray-900">Unit Price</th>
+                    <th className="px-4 py-3 text-right text-sm font-medium text-gray-900">Total</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-200">
+                  {selectedOrderForItems.items.map((item) => (
+                    <tr key={item.id}>
+                      <td className="px-4 py-3">
+                        <div>
+                          <p className="font-medium text-gray-900">{item.product?.name}</p>
+                          <p className="text-sm text-gray-500">SKU: {item.product?.sku}</p>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 text-right">{item.quantity}</td>
+                      <td className="px-4 py-3 text-right">{formatCurrency(item.unitPrice)}</td>
+                      <td className="px-4 py-3 text-right font-medium">{formatCurrency(item.totalPrice)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot className="bg-gray-50">
+                  <tr>
+                    <td colSpan={3} className="px-4 py-3 text-right font-medium">Subtotal:</td>
+                    <td className="px-4 py-3 text-right font-medium">{formatCurrency(selectedOrderForItems.subtotal)}</td>
+                  </tr>
+                  <tr>
+                    <td colSpan={3} className="px-4 py-3 text-right font-medium">Delivery Fee:</td>
+                    <td className="px-4 py-3 text-right font-medium">{formatCurrency(selectedOrderForItems.deliveryFee)}</td>
+                  </tr>
+                  <tr>
+                    <td colSpan={3} className="px-4 py-3 text-right font-medium">Tax:</td>
+                    <td className="px-4 py-3 text-right font-medium">{formatCurrency(selectedOrderForItems.taxAmount)}</td>
+                  </tr>
+                  {selectedOrderForItems.discountAmount > 0 && (
+                    <tr>
+                      <td colSpan={3} className="px-4 py-3 text-right font-medium text-green-600">Discount:</td>
+                      <td className="px-4 py-3 text-right font-medium text-green-600">-{formatCurrency(selectedOrderForItems.discountAmount)}</td>
+                    </tr>
+                  )}
+                  <tr>
+                    <td colSpan={3} className="px-4 py-3 text-right font-bold">Total:</td>
+                    <td className="px-4 py-3 text-right font-bold">{formatCurrency(selectedOrderForItems.totalAmount)}</td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          </div>
+        )}
+      </Modal>
     </div>
   );
 };
